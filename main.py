@@ -505,19 +505,9 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
                 t_logits_l = t_logits[:batch_size]
                 t_logits_uw, t_logits_us = t_logits[batch_size:].chunk(2)
                 del t_logits
-                # t_logits_l, _ = teacher_model(img_big_l.cuda(), img_small_l.cuda()) # .to(device0))
-                # t_logits_uw, _ = teacher_model(img_big_uw.cuda(), img_small_uw.cuda()) # .to(device0))
-                # t_logits_us, _ = teacher_model(img_big_us.cuda(), img_small_us.cuda()) # .to(device0))
-                # save_image(img_big_l[:25], os.path.join(args.save_path, 'big_images_train.jpg'), normalize=True)
-                # save_image(img_small_l[:25], os.path.join(args.save_path, 'small_images_train.jpg'), normalize=True)
-                # pdb.set_trace()
+
             else:
                 t_images = torch.cat((images_l, images_uw, images_us))
-                # t_images_big, t_images_small = t_images.chunk(2, 1)
-                # t_images_small = center_crop(t_images_small, t_images_small.shape[-1]//2)
-                # save_image(t_images_big[:25], os.path.join(args.save_path, 'big_images_train.jpg'), normalize=True)
-                # save_image(t_images_small[:25], os.path.join(args.save_path, 'small_images_train.jpg'), normalize=True)
-                # pdb.set_trace()
                 t_logits, _ = teacher_model(t_images.cuda()) # .to(device0))
                 t_logits_l = t_logits[:batch_size]
                 t_logits_uw, t_logits_us = t_logits[batch_size:].chunk(2)
@@ -563,12 +553,6 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
                 s_logits_us = s_logits[args.batch_size:]
 
                 del s_logits, s_features
-                # s_logits_uw, s_features_uw = student_model(img_big_uw.cuda(), img_small_uw.cuda()) 
-                # s_logits_us, s_features_us = student_model(img_big_us.cuda(), img_small_us.cuda()) 
-                # s_logits_l, s_features_l = student_model(img_big_l.cuda(), img_small_l.cuda())
-
-                # z_i = s_features_uw
-                # z_j = s_features_us
 
             else:
                 s_images = torch.cat((images_uw, images_us))
@@ -584,13 +568,6 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
                 s_logits_us = s_logits[batch_size:] # s_logits_us
 
                 del s_logits, s_features
-
-            # train student using labeled and pseudo-labeled images 
-            # s_images = torch.cat((images_l, images_us))
-            # s_logits, _ = student_model(s_images.to(device1))
-            # s_logits_l = s_logits[:batch_size]
-            # s_logits_us = s_logits[batch_size:]
-            # del s_logits
 
             # calculate X-ent loss for labeled student images 
             # s_loss_l_old ==> before student update
@@ -965,35 +942,11 @@ def main():
     fold_roc = []
     fold_acc =[]
 
-    # load folds and append individual metrics to fold_metric
-    # open_path = args.save_path
-    # pdb.set_trace()
-    # fold_folders = glob.glob(os.path.join(args.save_path, 'fold*'))
-    # for folder in range(len(fold_folders)):
-    #     fold_x = np.loadtxt(os.path.join(args.save_path, f'fold_{folder}/finetune_metrics.csv'), delimiter=',')
-    #     fold_x_roc = np.loadtxt(os.path.join(args.save_path, f'fold_{folder}/finetune_roc_auc.csv'), delimiter=',')
-    #     fold_tpr.append(fold_x[0])
-    #     fold_tnr.append(fold_x[1])
-    #     fold_f1.append(fold_x[2])
-    #     fold_acc.append(fold_x[3])
-    #     fold_roc.append(fold_x_roc)
-
-    # else:
-    #     fold_folder = 0
-    # fold_one = np.loadtxt(os.path.join(args.save_path, 'fold_1/finetune_metrics.csv'), delimiter=',')
-    # fold_one_roc = np.loadtxt(os.path.join(args.save_path, 'fold_1/finetune_roc_auc.csv'), delimiter=',')
-    # fold_tpr.append(fold_one[0])
-    # fold_tnr.append(fold_one[1])
-    # fold_f1.append(fold_one[2])
-    # fold_acc.append(fold_one[3])
-    # fold_roc.append(fold_one_roc)
     if args.resume:
         args.nfolds = 1
         
-    for fold in range(args.nfolds):  #  - len(fold_folders)):
-
-        # fold += 5
-
+    for fold in range(args.nfolds):  
+      
         args = parser.parse_args()
         base_path = args.save_path
         args.save_path = os.path.join(args.save_path, 'fold_{}'.format(fold))
@@ -1094,44 +1047,19 @@ def main():
             img_classes = ['Debris', 'Dense', 'Diff', 'Spread']
             for image_class in img_classes:
                 if args.dataset == 'custom':
-                    # labeled_dataset, unlabeled_dataset, test_dataset, finetune_dataset = DATASET_GETTERS[args.dataset](args)
-                    # unlabeled_dataset = CustomDataset(os.path.join(data_path, f'train/{image_class}'), crop_size=args.resize, thresh=0.25, remove_background=False
-                    #     )
-                    # labeled_dataset = CustomDataset(os.path.join(data_path, f'test/{image_class}'), crop_size=args.resize, thresh=0.25, remove_background=False
-                    #     )
+
                     test_dataset = CustomDatasetTest(os.path.join(data_path, image_class), crop_size=args.resize, thresh=0.25
                         )
                     finetune_dataset = labeled_dataset
 
                 elif args.dataset in ['multiscale', 'HRNet_multiscale']:
 
-                    # unlabeled_dataset = MultiscaleDataset(os.path.join(data_path, f'train/{image_class}'), crop_size=args.resize, thresh=0.25, n_scales=args.n_scales, remove_background=False
-                    #     )
-                    # labeled_dataset = MultiscaleDataset(os.path.join(data_path, f'test/{image_class}'), crop_size=args.resize, thresh=0.25, n_scales=args.n_scales,  remove_background=False
-                    #     )
                     test_dataset = MultiscaleDatasetTest(os.path.join(data_path, image_class), crop_size=args.resize, thresh=0.25, n_scales=args.n_scales
                         )
                     finetune_dataset = labeled_dataset
 
                 if args.local_rank == 0:
                     torch.distributed.barrier()
-
-                # train_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
-                # imbalanced_sampler = ImbalancedDatasetSampler(labeled_dataset)
-                # labeled_loader = DataLoader(
-                #     labeled_dataset,
-                #     sampler=imbalanced_sampler,  # DistributedSamplerWrapper(imbalanced_sampler)
-                #     batch_size=args.batch_size,
-                #     num_workers=args.workers,
-                #     drop_last=True)
-
-                # unlabeled_loader = DataLoader(
-                #     unlabeled_dataset,
-                #     sampler=train_sampler(unlabeled_dataset),
-                #     batch_size=args.batch_size, #  * args.mu,
-                #     # shuffle=True,
-                #     num_workers=args.workers,
-                #     drop_last=True)
 
                 test_loader = DataLoader(test_dataset,
                                          # sampler=SequentialSampler(test_dataset),
@@ -1161,16 +1089,6 @@ def main():
         if args.local_rank not in [-1, 0]:
             torch.distributed.barrier()
 
-        # teacher_model = WideResNet(num_classes=args.num_classes,
-        #                            depth=depth,
-        #                            widen_factor=widen_factor,
-        #                            dropout=0,
-        #                            dense_dropout=args.teacher_dropout)
-        # student_model = WideResNet(num_classes=args.num_classes,
-        #                            depth=depth,
-        #                            widen_factor=widen_factor,
-        #                            dropout=0,
-        #                            dense_dropout=args.student_dropout)
         if args.dataset == 'custom':
             teacher_model = Vgg19(args.num_classes, args.projection_dim)
             student_model = Vgg19(args.num_classes, args.projection_dim)
@@ -1344,24 +1262,6 @@ def main():
             out_metrics, roc_score = train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_loader, finetune_dataset,
                                                 teacher_model, student_model, avg_student_model, criterion, ntxent_criterion,
                                                 t_optimizer, s_optimizer, t_scheduler, s_scheduler, t_scaler, s_scaler, fold)
-
-    #     fold_tpr.append(out_metrics[0])
-    #     fold_tnr.append(out_metrics[1])
-    #     fold_f1.append(out_metrics[2])
-    #     fold_acc.append(out_metrics[3])
-    #     fold_roc.append(roc_score) 
-
-    # fold_tpr = np.array(fold_tpr)
-    # fold_tnr = np.array(fold_tnr)
-    # fold_f1 = np.array(fold_f1)
-    # fold_acc = np.array(fold_acc)
-    # fold_roc = np.array(roc_score)
-
-    # np.savetxt(os.path.join(base_path, 'tpr_fold.csv'), np.array([fold_tpr.mean(0), fold_tpr.std(0)]), fmt='%0.4f', delimiter=",")            
-    # np.savetxt(os.path.join(base_path, 'tnr_fold.csv'), np.array([fold_tnr.mean(0), fold_tnr.std(0)]), fmt='%0.4f', delimiter=",")            
-    # np.savetxt(os.path.join(base_path, 'f1_fold.csv'), np.array([fold_f1.mean(0), fold_f1.std(0)]), fmt='%0.4f', delimiter=",")            
-    # np.savetxt(os.path.join(base_path, 'acc_fold.csv'), np.array([fold_acc.mean(0), fold_acc.std(0)]), fmt='%0.4f', delimiter=",")            
-    # np.savetxt(os.path.join(base_path, 'roc_fold.csv'), np.array([fold_roc.mean(0), fold_roc.std(0)]), fmt='%0.4f', delimiter=",")   
 
     return
 
