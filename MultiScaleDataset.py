@@ -178,14 +178,11 @@ class MultiscaleDataset(data.Dataset):
                  loader=default_loader, normalize=True):
         classes, class_to_idx = find_classes(img_root)
         imgs = make_dataset(img_root, class_to_idx)
-        # tensors = make_dataset(tensor_root, class_to_idx)
         if len(imgs) == 0:
             raise(RuntimeError("Found 0 images in subfolders of: " + img_root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
         self.thresh = thresh
         self.img_root = img_root
-        # self.tensor_root = tensor_root
-        # self.tensors = tensors
         self.imgs = imgs
         self.normalize = normalize 
         self.classes = classes
@@ -205,11 +202,7 @@ class MultiscaleDataset(data.Dataset):
         """
         img_path, target = self.imgs[index]
         img_name = os.path.basename(img_path)[:-4]
-        # img_name = img_path[img_path.find(self.classes[target]):-4]
-        # print(img_name)
-        # pdb.set_trace()
         tensor_path = os.path.join(self.tensor_folder, img_name + '.txt')
-        # tensor_path, target = self.tensors[index]
         img_sample = Image.open(img_path).convert('L')
         tensor_sample = Image.fromarray(np.loadtxt(tensor_path))
         img = SmallScale(128)(img_sample)
@@ -234,16 +227,11 @@ class MultiscaleDataset(data.Dataset):
         img_gray = transforms.RandomHorizontalFlip()(img_gray)
         img_gray = transforms.RandomVerticalFlip()(img_gray)
         img_gray = transforms.ToTensor()(img_gray)
-        # if self.normalize:
-        #     img = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img)
+    
         if self.normalize:
             transforms.Normalize(mean=[0.485], std=[0.229])(img)
             transforms.Normalize(mean=[0.485], std=[0.229])(img2)
             transforms.Normalize(mean=[0.485], std=[0.229])(img_gray)
-        # if self.transform is not None:
-        #     img = self.transform(img)
-        # if self.target_transform is not None:
-        #     target = self.target_transform(target)
 
         return img, img2, img_gray, index, target
 
@@ -286,8 +274,6 @@ class CustomDatasetTest(data.Dataset):
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
         self.thresh = thresh
         self.img_root = img_root
-        # self.tensor_root = tensor_root
-        # self.tensors = tensors
         self.imgs = imgs
         self.normalize = normalize 
         self.classes = classes
@@ -307,42 +293,18 @@ class CustomDatasetTest(data.Dataset):
         """
         img_path, target = self.imgs[index]
         img_name = os.path.basename(img_path)[:-4]
-        # img_name = img_path[img_path.find(self.classes[target]):-4]
-        # print(img_name)
-        # pdb.set_trace()
         tensor_path = os.path.join(self.tensor_folder, img_name + '.txt')
-        # tensor_path, target = self.tensors[index]
         img_sample = Image.open(img_path).convert('L')
         tensor_sample = Image.fromarray(np.loadtxt(tensor_path))
         img = SmallScale(64)(img_sample)
         tensor_sample = SmallScale(64)(tensor_sample)
         img_crop = MapCrop(64, tensor=tensor_sample, thresh=self.thresh)(img)  # Random binarization (0.25)
         img_gray = transforms.Grayscale()(img_crop)
-
-        # img = transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.75)], 0.25)(img_gray)
-        # img = transforms.RandomApply([transforms.GaussianBlur(3)], 0.25)(img)
-        # img = transforms.RandomApply([transforms.RandomRotation(180)], 0.25)(img)
-        # img = transforms.RandomHorizontalFlip()(img)
-        # img = transforms.RandomVerticalFlip()(img)
         img = transforms.ToTensor()(img_gray)
-
-        # img2 = transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.75)], 0.25)(img_gray)
-        # img2 = transforms.RandomApply([transforms.GaussianBlur(3)], 0.25)(img2)
-        # img2 = transforms.RandomApply([transforms.RandomRotation(180)], 0.25)(img2)
-        # img2 = transforms.RandomHorizontalFlip()(img2)
-        # img2 = transforms.RandomVerticalFlip()(img2)
-        # img2 = transforms.ToTensor()(img2)
-
-        # if self.normalize:
-        #     img = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img)
+        
         if self.normalize:
             transforms.Normalize(mean=[0.485], std=[0.229])(img)
-            # transforms.Normalize(mean=[0.485], std=[0.229])(img2)
-        # if self.transform is not None:
-        #     img = self.transform(img)
-        # if self.target_transform is not None:
-        #     target = self.target_transform(target)
-
+            
         return (img, target) 
 
     def __len__(self):
