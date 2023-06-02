@@ -181,14 +181,11 @@ class MultiscaleDataset(data.Dataset):
                  loader=default_loader, normalize=True):
         classes, class_to_idx = find_classes(img_root)
         imgs = make_dataset(img_root, class_to_idx)
-        # tensors = make_dataset(tensor_root, class_to_idx)
         if len(imgs) == 0:
             raise(RuntimeError("Found 0 images in subfolders of: " + img_root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
         self.thresh = thresh
         self.img_root = img_root
-        # self.tensor_root = tensor_root
-        # self.tensors = tensors
         self.crop_params = crop_params
         self.remove_background=remove_background
         self.crop_size = crop_size
@@ -214,11 +211,7 @@ class MultiscaleDataset(data.Dataset):
         img_name = os.path.basename(img_path)[:-4]
         if self.crop_params is not None:
             crop_indices = self.crop_params[index]
-        # img_name = img_path[img_path.find(self.classes[target]):-4]
-        # print(img_name)
-        # pdb.set_trace()
         tensor_path = os.path.join(self.tensor_folder, img_name + '.txt')
-        # tensor_path, target = self.tensors[index]
         img_sample = Image.open(img_path).convert('L')
         tensor_sample = Image.fromarray(np.loadtxt(tensor_path))
         img = SmallScale(self.crop_size)(img_sample)
@@ -286,12 +279,6 @@ class MultiscaleDataset(data.Dataset):
         img2_center_center = F.pad(img2_center_center, pad2, "constant", 0)
         img_gray_center_center = F.pad(img_gray_center_center, pad2, "constant", 0)
 
-
-        # if self.transform is not None:
-        #     img = self.transform(img)
-        # if self.target_transform is not None:
-        #     target = self.target_transform(target)
-        # pdb.set_trace()
         if self.n_scales == 3:
             return torch.cat((img, img_center, img_center_center), 0), torch.cat((img2, img2_center, img2_center_center), 0), torch.cat((img_gray, img_gray_center, img_gray_center_center), 0), index, target, crop_indices
         else:
@@ -359,47 +346,17 @@ class MultiscaleDatasetTest(data.Dataset):
         """
         img_path, target = self.imgs[index]
         img_name = os.path.basename(img_path)[:-4]
-        # img_name = img_path[img_path.find(self.classes[target]):-4]
-        # print(img_name)
-        # pdb.set_trace()
         tensor_path = os.path.join(self.tensor_folder, img_name + '.txt')
-        # tensor_path, target = self.tensors[index]
         img_sample = Image.open(img_path).convert('L')
-        # tensor_sample = Image.fromarray(np.loadtxt(tensor_path))
         img = SmallScale(self.crop_size)(img_sample)
-        # tensor_sample = SmallScale(self.crop_size)(tensor_sample)
-        # img_crop = MapCrop(self.crop_size, tensor=tensor_sample, thresh=self.thresh)(img)  # Random binarization (0.25)
         img_crop = transforms.CenterCrop(self.crop_size)(img)
         img_gray = transforms.Grayscale()(img_crop)
-        # img_gray_down = transforms.Grayscale()(img_crop_down)
-
-        # img = transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.75)], 0.25)(img_gray)
-        # img = transforms.RandomApply([transforms.GaussianBlur(3)], 0.25)(img)
-        # img = transforms.RandomApply([transforms.RandomRotation(180)], 0.25)(img)
-        # img = transforms.RandomHorizontalFlip()(img)
-        # img = transforms.RandomVerticalFlip()(img)
         img_center = transforms.CenterCrop(self.crop_size//2)(img_gray)
         img_center_center = transforms.CenterCrop(self.crop_size//4)(img_center)
         img = transforms.ToTensor()(img_gray)
         img_center = transforms.ToTensor()(img_center)
         img_center_center = transforms.ToTensor()(img_center_center)
 
-        # img2 = transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.75)], 0.25)(img_gray)
-        # img2 = transforms.RandomApply([transforms.GaussianBlur(3)], 0.25)(img2)
-        # img2 = transforms.RandomApply([transforms.RandomRotation(180)], 0.25)(img2)
-        # img2 = transforms.RandomHorizontalFlip()(img2)
-        # img2 = transforms.RandomVerticalFlip()(img2)
-        # img2_center = transforms.CenterCrop(64)(img2)
-        # img2 = transforms.ToTensor()(img2)
-        # img2_center = transforms.ToTensor()(img2_center)
-
-        # img_gray = transforms.RandomHorizontalFlip()(img_gray)
-        # img_gray = transforms.RandomVerticalFlip()(img_gray)
-        # img_gray_center = transforms.CenterCrop(64)(img_gray)
-        # img_gray = transforms.ToTensor()(img_gray)
-        # img_gray_center = transforms.ToTensor()(img_gray_center)
-        # if self.normalize:
-        #     img = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(img)
         if self.normalize:
             transforms.Normalize(mean=[0.485], std=[0.229])(img)
             # transforms.Normalize(mean=[0.485], std=[0.229])(img2)
@@ -408,25 +365,16 @@ class MultiscaleDatasetTest(data.Dataset):
             transforms.Normalize(mean=[0.485], std=[0.229])(img_center)
             transforms.Normalize(mean=[0.485], std=[0.229])(img_center_center)
 
-            # transforms.Normalize(mean=[0.485], std=[0.229])(img2_center)
-            # transforms.Normalize(mean=[0.485], std=[0.229])(img_gray_center)
-
         pad = (self.crop_size//4, self.crop_size//4, self.crop_size//4, self.crop_size//4)
         pad2 = ((self.crop_size-(self.crop_size//4))//2, (self.crop_size-(self.crop_size//4))//2, (self.crop_size-(self.crop_size//4))//2, (self.crop_size-(self.crop_size//4))//2)
 
         img_center = F.pad(img_center, pad, "constant", 0)
         img_center_center = F.pad(img_center_center, pad2, "constant", 0)
-        # img2_center = F.pad(img2_center, pad, "constant", 0)
-        # img_gray_center = F.pad(img_gray_center, pad, "constant", 0)
-        # if self.transform is not None:
-        #     img = self.transform(img)
-        # if self.target_transform is not None:
-        #     target = self.target_transform(target)
-        # pdb.set_trace()
+
         if self.n_scales == 3:
-            return torch.cat((img, img_center, img_center_center), 0), target  #  torch.cat((img2, img2_center), 0), torch.cat((img_gray, img_gray_center), 0), index, 
+            return torch.cat((img, img_center, img_center_center), 0), target  
         else:
-            return torch.cat((img, img_center), 0), target  #  torch.cat((img2, img2_center), 0), torch.cat((img_gray, img_gray_center), 0), index, 
+            return torch.cat((img, img_center), 0), target   
 
 
     def __len__(self):
