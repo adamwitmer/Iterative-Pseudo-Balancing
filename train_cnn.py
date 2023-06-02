@@ -2,7 +2,6 @@
 This program trains a CNN on image patches from a stem cell microscopy dataset with 4 classes.
 CNN's are trained with and without the addition of generated image patches
 
-
 """
 
 from __future__ import division
@@ -228,127 +227,7 @@ def _is_pil_image(img):
         return isinstance(img, (Image.Image, accimage.Image))
     else:
         return isinstance(img, Image.Image)
-
-
-class Generator(nn.Module):
-    def __init__(self, feat_maps):
-        super(Generator, self).__init__()
-
-        self.label_emb = nn.Embedding(4, 100)
-        self.feat_maps = int(feat_maps)
-
-
-        self.init_size = 64 // 4  # Initial size before upsampling
-        self.l1 = nn.Sequential(nn.Linear(100, self.feat_maps*self.init_size**2))
-
-        self.conv_blocks = nn.Sequential(
-            nn.BatchNorm2d(self.feat_maps),
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(self.feat_maps, self.feat_maps, 3, stride=1, padding=1),
-            nn.BatchNorm2d(self.feat_maps, 0.8),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(self.feat_maps, self.feat_maps//2, 3, stride=1, padding=1),
-            nn.BatchNorm2d(self.feat_maps//2, 0.8),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(self.feat_maps//2, 1, 3, stride=1, padding=1),
-            nn.Tanh()
-        )
-
-    def forward(self, noise, labels):
-        gen_input = torch.mul(self.label_emb(labels), noise)
-        out = self.l1(gen_input)
-        out = out.view(out.shape[0], self.feat_maps, self.init_size, self.init_size)
-        img = self.conv_blocks(out)
-        return img
-
-
-def build_dataset(train_path, fld):
-
-    # for testing use first seed, CHANGE FOR CROSS VALIDATION to randseeds[net]
-    randseeds = [1046, 6401, 51, 200589, 50098, 24568, 249, 7899, 2, 89000]
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    # update customDataset to produce scaled 224 patches
-    # custom_data = CustomDataset224(train_path, opt.crop_thresh, normalize=True)
-    custom_data = CustomDataset(train_path, opt.crop_thresh, normalize=True)
-    weight_data = datasets.ImageFolder(train_path, transform=transforms.Compose([transforms.Resize((224, 224)),
-                                                                                 transforms.Grayscale(),
-                                                                                 transforms.ToTensor()]
-                                                                                )
-                                       )
-
-    valid_data = datasets.ImageFolder(train_path, transforms.Compose([SmallScale(64),
-                                                                        transforms.Grayscale(),
-                                                                        transforms.RandomCrop(64),
-                                                                        # transforms.Resize(224),
-                                                                        transforms.RandomHorizontalFlip(),
-                                                                        transforms.RandomVerticalFlip(),
-                                                                        transforms.ToTensor(),
-                                                                        normalize]))
-
-
-    num_train = len(custom_data)
-    indices = list(range(num_train))
-    split = int(np.floor(0.2 * num_train))
-
-    np.random.seed(randseeds[fld])  # --> randseeds[net]
-    np.random.shuffle(indices)
-
-    train_idx, valid_idx, test_idx = indices[split:], indices[split//2:split], indices[:split//2]
-
-    train_sampler = sampler.SubsetRandomSampler(train_idx)
-    valid_sampler = sampler.SubsetRandomSampler(valid_idx)
-    test_sampler = sampler.SubsetRandomSampler(test_idx)
-
-    train_loader = torch.utils.data.DataLoader(custom_data,
-                                               batch_size=128,
-                                               sampler=train_sampler,
-                                               shuffle=False,
-                                               drop_last=True)
-
-    valid_loader = torch.utils.data.DataLoader(valid_data,
-                                               batch_size=128,
-                                               sampler=valid_sampler,
-                                               shuffle=False,
-                                               drop_last=True)
-
-    test_loader = torch.utils.data.DataLoader(custom_data,
-                                              batch_size=128,
-                                              sampler=test_sampler,
-                                              shuffle=False,
-                                              drop_last=False)
-
-    weight_loader = torch.utils.data.DataLoader(weight_data,
-                                                batch_size=128,
-                                                sampler=train_sampler,
-                                                shuffle=False)
-
-    return train_loader, valid_loader, weight_loader, test_loader  # , test_idx
-
-
-def make_gan_imgs(weights, setup):
-
-    # TODO: load trained gan networks
-    gan_network= '/data3/adamw/AUXGAN_thresh/8_23_19_t50_5/trained_models/generator_epoch_299.ph'
-    generator = DataParallel(Generator(1024).cuda())
-    generator.load_state_dict(torch.load(gan_network))
-    generator = list(generator.children())
-    generator = DataParallel(generator[0])
-    generator.eval()
-
-    pdb.set_trace()
-    add_imgs = weights.max() - weights
-    if setup == 'balance_classes':
-        latent_z = Variable(torch.randn(1, 100)).cuda()
-        # latent_z = Variable(torch.cuda.FloatTensor(np.random.normal(0, 1, (1, opt.latent_dim)))).cuda()
-        labels = Variable(torch.cuda.LongTensor(1).fill_(i))
-        out = generator(latent_z, labels)
-    # else:
-    #     # TODO: balance classes then add number of images implied by setup
-
+   
 
 def class_weights(data_set):
 
@@ -393,22 +272,9 @@ def normalize_img(img):
 
     return norm.round()
 
-# data_path = '/data3/adamw/AUXGAN_save/example_dataset/save/two_class'
-# data_path = '/data1/adamw/entropy_gan'
-# data_folders = ['add_1000_0', 'add_5000_0', 'add_10000_0']  # 'add_none_0',
-# data_folders = ['balanced_plus_1000', 'balanced_plus_2000']  # 'unbalanced', 'balanced']
-# data_folders = ['balanced_plus_3000', 'balanced_plus_5000', 'balanced_plus_10k']
-# data_folders = ['GAN_imgs_three_classes'] # 'four_class_128']
 
-data_folders = ['four_class']  # 'four_class', 'temporal_1', 'temporal_2', 'temporal_3']
-# 'high_entropy_balanced', 'high_entropy_1k', 'high_entropy_2k', 'high_entropy_5k']
-    # 'four_class_balanced', 'four_class_1000'] # 'three_class']  # 'four_class']  # 'balanced_plus_3000', 'balanced_plus_5000', 'balanced_plus_10k']
-# 'undersample_plus_500', 'balanced_plus_1000',
-# '10_percent', '20_percent', '30_percent', '40_percent',
-# '50_percent']  # 'standard',
-# data_folders = []  # 'two_class_2']  # , 'Debris_Diff'] 'Debris_Spread', 'Dense_Diff'  #  two_class']  # 'george_sorted']  # 'adam_sorted'
+data_folders = ['four_class']  
 
-# TODO: ROC for CNN
 n_folds = 5
 
 seeds = [1046, 6401, 51, 200589, 50098]  # 1046, 6401, 51]  #, ]  #
@@ -417,7 +283,6 @@ normalize = transforms.Normalize(mean=[0.485], std=[0.229])
 
 networks = ['HRNet']  #   'resnet18',  'vgg19']   # 'vgg13', 'vgg16', 'resnet50'
 
-# # model_name = 'entropy_net'
 fold_tpr = []
 fold_tnr = []
 fold_f1 = []
@@ -431,14 +296,7 @@ for network in networks:
         for fold in range(opt.n_folds):
             if folder.startswith('temporal'):
                 opt.n_classes = 2
-            # fold += 1
-
-            # for net in range(3):
-
-            # initialize Imagefolder/Dataloader, split dataset (train:validate)
-            # _, valid_loader, weight_loader, _ = build_dataset(opt.train_path, fold)
-
-            # if folder == 'unbalanced':
+           
             new_data_path = os.path.join(opt.train_path, folder, 'fold_{}'.format(fold))
 
             train_data = datasets.ImageFolder(os.path.join(new_data_path, 'test'), transforms.Compose([SmallScale(opt.crop_size),
@@ -457,6 +315,8 @@ for network in networks:
                                               # transforms.RandomVerticalFlip(),
                                               transforms.ToTensor(),
                                               normalize]))
+            
+            """if performing on fly data split"""
             # num_train = len(train_data)
             # indices = list(range(num_train))
             # split = int(np.floor(0.2 * num_train))  # 0.8 --> 20% train data; 0.2 --> 80% train data
@@ -470,17 +330,7 @@ for network in networks:
             #                                            batch_size=64,
             #                                            shuffle=False)
             #
-            # else:
-            #     data_folder = '{}_{}'.format(folder, fold)
-            #     train_folder = os.path.join(data_path, data_folder)
-            #     train_data = datasets.ImageFolder(train_folder, transforms.Compose([SmallScale(64),
-            #                                                                         transforms.Grayscale(),
-            #                                                                         transforms.RandomCrop(64),
-            #                                                                         # transforms.Resize(224),
-            #                                                                         transforms.RandomHorizontalFlip(),
-            #                                                                         transforms.RandomVerticalFlip(),
-            #                                                                         transforms.ToTensor(),
-            #                                                                         normalize]))
+            
             train_loader = torch.utils.data.DataLoader(train_data,
                                                        batch_size=opt.batch_size,
                                                        sampler=ImbalancedDatasetSampler(train_data),
@@ -491,11 +341,8 @@ for network in networks:
                                                        shuffle=False)
 
             # Define model, loss function, optimizer, other parameters
-            opt.d_in = 64  # length of input feature vector (HoG --> 2304, multi --> 90, image size --> 64/4096)
-            # FCN_model = FCN(opt.d_in, opt.n_classes).cuda()
-            # CNN_model = HESCnet().cuda()
-            # CNN_model = models.inception_v3()
-            # pdb.set_trace()
+            opt.d_in = 64  
+            
             if network == 'vgg13':
                 model_name = network
                 CNN_model = DataParallel(vgg_models.vgg13_bn(num_classes=opt.n_classes).cuda())
@@ -527,60 +374,16 @@ for network in networks:
                 CNN_model = DataParallel(CNN_model.cuda())
                 # CNN_model.fc = nn.Identity()
             print(f'Params: {sum(p.numel() for p in CNN_model.parameters())/1e6:.2f}M')
-            # if network == 'densenet121':
-            #     model_name = 'densenet121'
-            #     CNN_model = DataParallel(models.densenet121(num_classes=4).cuda())
-            # elif network == 'resnet50':
-            #     model_name = 'resnet50'
-            #     CNN_model = DataParallel(models.resnet50(num_classes=4).cuda())
-            # elif net == 2:
-            #     model_name = 'inception'
-            #     CNN_model = DataParallel(models.inception_v3(num_classes=4).cuda())
+           
 
             """Load Model"""
-            # CNN_model = HESCnet().cuda()
-            # CNN_model = DataParallel(CNN_model)
+            
             print("Model Parameters Reset.")
 
             """Load pretrained model"""
-            # load_path = os.path.join('/data3/adamw/entropy_cnn/entropy_net_add_1000_11_8_2019_1/trained_nn.pth')
-            # load_path = os.path.join(nets)
-
-            # hescnet = torch.load(load_path)
-            # model = models.inception_v3()
-            # model.fc = nn.Linear(2048, 4, bias=True)
-            # pdb.set_trace()
-            # model.load_state_dict(torch.load(load_path))
-            # model = DataParallel(model)
-
-            # CNN_model = torch.load(load_path).cuda()
-
-            # model = model.cuda()
-            # initialize GAN network
-            # gan_network = '/data3/adamw/AUXGAN_thresh/8_23_19_t50_5/trained_models/generator_epoch_299.ph'
-            # generator = DataParallel(Generator(1024).cuda())
-            # generator.load_state_dict(torch.load(gan_network))
-            # generator = list(generator.children())
-            # generator = DataParallel(generator[0])
-            # generator.eval()
-
-            # see model weights
-            # print(FCN_model.linear1.weight)
-            # print(FCN_model.linear2.weight)
-
-            # use this format for control...
-            # loss_func = torch.nn.CrossEntropyLoss(weight=class_weights(weight_loader).cuda())
-
-            # TODO: use this format for experimental...i.e. add generated images
-            # count how many images to generate per epoch to balance classes
-            # class_nums = class_numbers(weight_loader)
-            loss_func = torch.nn.CrossEntropyLoss()  # weight=(class_nums.max()/class_nums).cuda())
-
-            # initialize optimization function
-            # optim_func = torch.optim.Adam(FCN_model.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-            # optim_func = torch.optim.Adam(CNN_model.parameters(), lr=opt.lr_adam, betas=(opt.b1, opt.b2))
-            # optim_func = torch.optim.SGD(FCN_model.parameters(), lr=opt.lr_sgd,
-            #                              momentum=opt.momentum_sgd, weight_decay=opt.wd_sgd)
+            
+            loss_func = torch.nn.CrossEntropyLoss() 
+          
             optim_func = torch.optim.SGD(CNN_model.parameters(), lr=opt.lr_sgd,
                                          momentum=opt.momentum_sgd, weight_decay=opt.wd_sgd)
 
@@ -589,16 +392,8 @@ for network in networks:
 
             # create unique save folder
             save_folder = os.path.join(opt.save_path, 'fold_{}'.format(fold))
-            # , '{}_{}_{}'.format(model_name, folder, fold
-                                                                                  # time.localtime().tm_mon,
-                                                                                  # time.localtime().tm_mday,
-                                                                                  # time.localtime().tm_year,
-                                       #                                           )
-                                       # )
+           
             os.makedirs(save_folder, exist_ok=True)
-
-            # TODO: implement SummaryWriter?
-            # writer = SummaryWriter(os.path.join(opt.save_path))
 
             # initialize training monitoring
             train_losses = []
@@ -621,21 +416,13 @@ for network in networks:
                 count = 0
 
                 # train model
-                # FCN_model.train()
                 CNN_model.train()
                 for i, (imgs, labels) in enumerate(train_loader):
 
                     count += len(labels)
-                    # img_features = Tensor(texture_features(valid_imgs))
-                    # labels = (labels != 0).type(torch.LongTensor)
-                    # pdb.set_trace()
-
-                    # flatten image
-                    # img_features = imgs.view(-1, 4096).cuda()
-
+                   
                     # train model --> forward pass, compute BCE loss, compute gradient, optimizer step
                     optim_func.zero_grad()
-                    # output = FCN_model.forward(Variable(img_features, requires_grad=False)).cuda()
                     output = CNN_model.forward(imgs.cuda())
                     loss = loss_func(output, labels.cuda())
                     loss.backward()
@@ -646,9 +433,6 @@ for network in networks:
                     # predictions = np.argmax(output.data.cpu().numpy(), axis=1)
                     predictions = output.argmax(dim=1)
                     correct = predictions.eq(labels.cuda()).sum().item()
-                    # pdb.set_trace()
-                    # correct = (predictions == labels).sum()
-                    # correct =
                     total_correct += correct
 
                     # change to output training accuracy and loss parameters, fix 'Train time' output
@@ -662,69 +446,12 @@ for network in networks:
                 train_losses.append(train_loss/len(train_loader))
                 train_acc.append(total_correct/count)
 
-                # """
-                # train network on added images to even out data imbalances
-                # setup = 'balance_classes'  # 1000, 5000, 10000
-                #
-                # Balancing classes doesnt seem to work well...
-                # """
-                # add_nums = class_nums.max() - class_nums
-                # batch_nums = (add_nums / opt.batch_size).floor()
-                # batch_count = 0
-
-                # # try adding just 1-2 batches of GAN imgs per class...
-                # batch_nums = torch.Tensor(1,4).fill_(opt.gan_batches)
-                # for gan_img in range(int(batch_nums.sum())):
-                #
-                #     latent_z = Variable(torch.randn(opt.batch_size, 100)).cuda()
-                #
-                #     if gan_img <= batch_nums[0]:
-                #         gan_labels = Variable(torch.cuda.LongTensor(opt.batch_size).fill_(0))
-                #
-                #     elif batch_nums[0] < gan_img <= (batch_nums[0] + batch_nums[1]):
-                #         gan_labels = Variable(torch.cuda.LongTensor(opt.batch_size).fill_(1))
-                #
-                #     elif (batch_nums[0] + batch_nums[1]) < gan_img <= (batch_nums[0] + batch_nums[1] + batch_nums[2]):
-                #         gan_labels = Variable(torch.cuda.LongTensor(opt.batch_size).fill_(2))
-                #
-                #     elif (batch_nums[0] + batch_nums[1] + batch_nums[2]) < gan_img <= batch_nums.sum():
-                #         gan_labels = Variable(torch.cuda.LongTensor(opt.batch_size).fill_(3))
-                #
-                #     gan_imgs = generator(latent_z, gan_labels)  # .repeat(1, 3, 1, 1)
-                #
-                #     # rescale images and convert to RGB and normalize
-                #     gan_tensor = torch.Tensor()
-                #     for temp_img in gan_imgs:
-                #         temp_img = temp_img.cpu().data
-                #         temp_img = transforms.ToPILImage()(temp_img)
-                #         # temp_img = transforms.Resize((224, 224))(temp_img)
-                #         temp_img = temp_img.filter(ImageFilter.GaussianBlur(radius=3))
-                #         temp_img = transforms.ColorJitter()(temp_img)
-                #         temp_img = transforms.ToTensor()(temp_img)
-                #         temp_img = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                #                                         std=[0.229, 0.224, 0.225])(temp_img)
-                #         gan_tensor = torch.cat((gan_tensor, temp_img.unsqueeze(0)))
-                #
-                #     # TODO: try label flipping (with 20% probability, send random labels between 0-1 to loss function)
-                #     if 0 <= np.random.randint(0, 9) <= 1:
-                #         gan_labels = Variable(torch.cuda.LongTensor(np.random.randint(0, 4, opt.batch_size)))
-                #     optim_func.zero_grad()
-                #     output = CNN_model.forward(Variable(gan_tensor.cuda(), requires_grad=True)).cuda()
-                #     loss = loss_func(output, gan_labels).cuda()
-                #
-                #     loss.backward()
-                #     optim_func.step()
-                #
-                #     sys.stdout.write('\r TRAINING GAN IMGS: Epoch: {}/{}, Progress: {}%, Loss: {:0.4f}'
-                #                      .format(epoch + 1, opt.n_epoch,
-                #                              round((gan_img / int(batch_nums.sum())) * 100),
-                #                              loss.data[0]))
+               
 
                 # test model
                 count = 0
                 total_correct = 0
                 valid_loss = 0
-                # FCN_model.eval()
                 CNN_model.eval()
                 all_predictions = []
                 all_targets = []
@@ -734,21 +461,11 @@ for network in networks:
 
                     count += len(valid_labels)
 
-                    # gather texture features for input batch
-                    # img_features = Tensor(texture_features(valid_imgs))
-                    # img_features = valid_imgs.view(-1, 4096).cuda()
-
-                    # train model
-                    # output = FCN_model.forward(Variable(img_features, requires_grad=False)).cuda()
                     output = CNN_model.forward(valid_imgs.cuda())
                     loss = loss_func(output, valid_labels.cuda())
 
-                    # gather data
-                    # valid_loss += loss.data[0]
-                    # predictions = np.argmax(output.data.cpu().numpy(), axis=1)
-                    # correct = (predictions == valid_labels).sum()
+                   
                     valid_loss += loss.item()
-                    # predictions = np.argmax(output.data.cpu().numpy(), axis=1)
                     predictions = output.argmax(dim=1)
                     correct = predictions.eq(valid_labels.cuda()).sum().item()
                     total_correct += correct
@@ -795,24 +512,6 @@ for network in networks:
         np.savetxt(os.path.join(opt.save_path, 'f1_fold.csv'), np.array([fold_f1.mean(0), fold_f1.std(0)]), fmt='%0.4f', delimiter=",")            
         np.savetxt(os.path.join(opt.save_path, 'acc_fold.csv'), np.array([fold_acc.mean(0), fold_acc.std(0)]), fmt='%0.4f', delimiter=",")            
         np.savetxt(os.path.join(opt.save_path, 'roc_fold.csv'), np.array([fold_roc.mean(0), fold_roc.std(0)]), fmt='%0.4f', delimiter=",")            
-#     line1, = plt.plot(train_losses, label='Training Loss', linestyle='-', color='r')
-
-            #     line2, = plt.plot(valid_losses, label='Validation Loss', linestyle='-.', color='g')
-            #     plt.legend(handles=[line1 , line2])
-            #     plt.title('Training Loss Values')
-            #     plt.ylabel('Binary Cross Entropy Loss')
-            #     plt.xlabel('Epoch')
-            #     plt.savefig('{}/performance.png'.format(save_folder))
-            #     plt.clf()
-
-            #     line1, = plt.plot(train_acc, label='Train Accuracy', linestyle='-', color='b')
-            #     line2, = plt.plot(valid_acc, label='Validation Accuracy', linestyle='-.', color='orange')
-            #     plt.legend(handles=[line1 , line2])
-            #     plt.title('Training Classification Accuracy')
-            #     plt.ylabel('Classification Accuracy')
-            #     plt.xlabel('Epoch')
-            #     plt.savefig('{}/accuracy.png'.format(save_folder))
-            #     plt.clf()
 
             #     if (epoch > 0 and epoch % opt.save_int == 0) or epoch == opt.n_epoch - 1:
             #         torch.save(CNN_model, ('{}/trained_nn.pth'.format(save_folder)))
