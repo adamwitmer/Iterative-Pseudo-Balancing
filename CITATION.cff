@@ -4,6 +4,8 @@ authors:
 - family-names: Adam,Bir
   given-names: Witmer, Bhanu
 orcid: https://orcid.org/0000-0003-1097-651X
-title:ajwitty/Iterative-Pseudo-Balancing: Iterative Pseudo Balancing
+title: Iterative Pseudo Balancing
 version: v1.0.0
+doi: 10.5281/zenodo.10672230
 date-released: 2024-02-16
+url: 'https://github.com/ajwitty/Iterative-Pseudo-Balancing'
