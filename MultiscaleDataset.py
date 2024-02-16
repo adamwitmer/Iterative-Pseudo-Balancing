@@ -197,7 +197,7 @@ class MultiscaleDataset(data.Dataset):
         self.target_transform = target_transform
         self.n_scales = n_scales
         self.loader = loader
-        self.tensor_folder = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/dataset/SimCLR_datasets/tensors/all_tensors'
+        self.tensor_folder = '' # path to binary maps
 
     def __getitem__(self, index):
         """
@@ -334,7 +334,7 @@ class MultiscaleDatasetTest(data.Dataset):
         self.target_transform = target_transform
         self.n_scales = n_scales
         self.loader = loader
-        self.tensor_folder = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/dataset/SimCLR_datasets/tensors/all_tensors'
+        self.tensor_folder = ''  # path to binary maps
 
     def __getitem__(self, index):
         """
