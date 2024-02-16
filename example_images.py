@@ -87,9 +87,8 @@ def _is_pil_image(img):
         return isinstance(img, Image.Image)
 
 
-base_path = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/HDNeuron/GAN_imgs'
-save_path = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/MPL_save'
-
+base_path = ''  # path to dataset
+save_path = ''
 
 img_path = datasets.ImageFolder(base_path, transforms.Compose([SmallScale(128),
                                                    transforms.Grayscale(),
@@ -100,15 +99,11 @@ img_path = datasets.ImageFolder(base_path, transforms.Compose([SmallScale(128),
                                                    transforms.ToTensor()]))
 
 img_set = DataLoader(img_path, 
-					 batch_size=100,
+		     batch_size=100,
                      sampler=ImbalancedDatasetSampler(img_path),
                      shuffle=False)
 
 for i, (img, target) in enumerate(img_set):
-
-
     save_image(img, os.path.join(save_path, 'Color_jitter.png'), nrow=10, normalize=True)
     break
-
-# pdb.set_trace()
 
