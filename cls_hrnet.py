@@ -21,7 +21,7 @@ import torch._utils
 import torch.nn.functional as F
 import yaml
 import pdb
-with open('/home/adam/contrastive_learner/MPL-pytorch/HRNet/experiments/cls_hrnet_w18_sgd_lr5e-2_wd1e-4_bs32_x100.yaml') as file:
+with open('') as file:
     config = yaml.safe_load(file)
 
 BN_MOMENTUM = 0.1
