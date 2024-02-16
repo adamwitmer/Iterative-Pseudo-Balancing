@@ -43,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', type=str, required=True, help='experiment name')
-parser.add_argument('--data_path', default="/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/dataset/SimCLR_datasets/four_class_hetero", type=str, help='data path')
-parser.add_argument('--save_path', default="/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/MPL_save/balanced_MPL_ML_MS_HRNet", type=str, help='save path')
+parser.add_argument('--data_path', default="", type=str, help='data path')
+parser.add_argument('--save_path', default="", type=str, help='save path')
 parser.add_argument('--dataset', default='HRNet_multiscale', type=str,
                     choices=['custom', 'cifar10', 'cifar100', 'multiscale', 'HRNet', 'HRNet_multiscale'], help='dataset name')
 parser.add_argument('--num-labeled', type=int, default=4000, help='number of labeled data')
@@ -149,12 +149,6 @@ def pretrain(args, labeled_loader, test_loader, teacher_model, criterion, t_opti
         loss_value = 0
         for step, ((x_i, x_j, img, _, target, _)) in enumerate(labeled_loader):
 
-            # img1, img2 = img
-            # x_i = x_i.to(device1)
-            # x_j = x_j.to(device1)
-            # img = img.to(device1)
-            # target = target.to(device1)
-
             sys.stdout.write('\rPre-train Train Epoch: {}, Batch: {}/{}'.format(epoch+1, step+1, len(labeled_loader)))
 
             # with amp.autocast(enabled=args.amp):
@@ -166,7 +160,6 @@ def pretrain(args, labeled_loader, test_loader, teacher_model, criterion, t_opti
                     save_image(img_big[:25], os.path.join(args.save_path, 'pretrain_input_big.png'), nrow=5, normalize=True)
                     save_image(img_big[:25], os.path.join(args.save_path, 'pretrain_input_big.png'), nrow=5, normalize=True)
 
-            # # TODO: pad smaller image 
             else:
                 pre_out, _ = teacher_model.forward(img.cuda()) # to(device0))  #, img2.to(device0))
             t_loss = pretrain_crit(pre_out, target.cuda())  # to(device0))
@@ -174,13 +167,6 @@ def pretrain(args, labeled_loader, test_loader, teacher_model, criterion, t_opti
             pretrain_optim.zero_grad()
             t_loss.backward()
             pretrain_optim.step()
-            # t_scaler.scale(t_loss).backward()
-            # if args.grad_clip > 0:
-            #     t_scaler.unscale_(t_optimizer)
-            #     nn.utils.clip_grad_norm_(teacher_model.parameters(), args.grad_clip)
-            # t_scaler.step(t_optimizer)
-            # t_scaler.update()
-            # t_scheduler.step()
             loss_value += t_loss.item()
 
         del img, target, pre_out, t_loss
@@ -191,11 +177,6 @@ def pretrain(args, labeled_loader, test_loader, teacher_model, criterion, t_opti
         targets = []
         predictions = []
         for step, ((img, target)) in enumerate(test_loader):
-
-            # x_i = x_i.to(device1)
-            # x_j = x_j.to(device1)
-            # img = img.to(device1)
-            # target = target.to(device1)
 
             sys.stdout.write('\rPre-train Valid Epoch: {}, Batch: {}/{}'. format(epoch+1, step+1, len(test_loader)))
             if args.dataset in ['multiscale', 'HRNet_multiscale']:
@@ -221,7 +202,7 @@ def pretrain(args, labeled_loader, test_loader, teacher_model, criterion, t_opti
     conf_mat = confusion_matrix(targets, predictions)
     pretrain_metrics = metrics(args, conf_mat)
     np.savetxt(os.path.join(args.save_path, "pretrain_metrics.csv"), pretrain_metrics, fmt='%.4f', delimiter=',')
-    torch.save(teacher_model.state_dict(), os.path.join(args.save_path, 'pretrained_teacher.pth.tar')) # , _use_new_zipfile_serialization=False)
+    torch.save(teacher_model.state_dict(), os.path.join(args.save_path, 'pretrained_teacher.pth.tar')) 
     return
 
 
@@ -294,7 +275,6 @@ def resample(args, t_model, unlabeled_dataset, weighted):
     real_targets, new_pseudo_labels = zip(*((real, preds) for real, preds in zip(real_targets, pseudo_labels) if real not in [4, 5]))
     conf_mat = confusion_matrix(real_targets, new_pseudo_labels)
     out_metrics = metrics(args, conf_mat)
-    # TODO: open file and add class weights 
     print(out_metrics)
 
     # calculate individual image class weights for new dataset 
@@ -305,7 +285,7 @@ def resample(args, t_model, unlabeled_dataset, weighted):
     # perform iterative multinomial sampling
     pseudo_sampler = PseudoLabelResampler(imgs, weights)
 
-    # TODO: build custom loader that uses same image patch samples as input
+    # build custom loader that uses same image patch samples as input
     if args.dataset in ['multiscale', 'HRNet_multiscale']: 
         unlabeled_dataset = MultiscaleDataset(os.path.join(args.data_path, 'train'), crop_size=args.resize, thresh=0.25, n_scales=args.n_scales, remove_background=False, crop_params=np.array(crop_indices))
     else:
@@ -324,7 +304,6 @@ def resample(args, t_model, unlabeled_dataset, weighted):
 
         resampled_loader = DataLoader(
             unlabeled_dataset,
-            # sampler=pseudo_sampler,
             batch_size=args.batch_size,  #  * args.mu,
             num_workers=args.workers,
             drop_last=True)
@@ -383,17 +362,7 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
 
     labeled_iter = iter(labeled_loader)
     unlabeled_iter = iter(unlabeled_loader)
-
-    # weighted_criterion_s = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float).to(device1))  #.cuda())
-    # weighted_criterion_t = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float).to(device0))  #.cuda())
-
-    # for author's code formula
-    # moving_dot_product = torch.empty(1).to(args.device)
-    # limit = 3.0**(0.5)  # 3 = 6 / (f_in + f_out)
-    # nn.init.uniform_(moving_dot_product, -limit, limit)
-
-    # for step in range(args.start_step, args.total_steps):
-    # MPL train epoch --> Resample --> SimCLR epoch
+                 
     epoch = 0
     step = 0
     t_loss_epoch = 0
@@ -429,7 +398,6 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
                 labeled_epoch += 1
                 labeled_loader.sampler.set_epoch(labeled_epoch)
             labeled_iter = iter(labeled_loader)
-            # images_l, targets = next(labeled_iter)
             x_i_t, x_j_t, images_l, idx_t, targets, _ = next(labeled_iter)  # images_l, targets
 
 
@@ -437,7 +405,6 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
             new_iter = False
             # unlabeled contrastive iteration
             images_uw, images_us, _, _, _, _ = next(unlabeled_iter)
-            # (images_uw, images_us), _ = next(unlabeled_iter)
         except:  # one iteration through entire unlabeled dataset == one epoch
             new_iter = True
             if epoch > 0:
@@ -453,18 +420,12 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
                 unlabeled_loader, class_weights = resample(args, teacher_model, unlabeled_dataset, weighted=args.weighted)
                 print('Epoch {}, Class Weights: {}'.format(epoch+1, class_weights))
 
-            # weighted_criterion_s = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float).to(device1)) # .to(device))
-            # weighted_criterion_t = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float).to(device0)) # .to(device))
-
-            # train SimCLR model with resampled datast
-            # sim_loss = simclrloop(args, student_model, unlabeled_loader, s_optimizer,
-            #                       s_scaler, s_scheduler, ntxent_criterion)
-
             if args.world_size > 1:
                 unlabeled_epoch += 1
                 unlabeled_loader.sampler.set_epoch(unlabeled_epoch)
             unlabeled_iter = iter(unlabeled_loader)
-            # images_uw ==> original image, images_us ==> transformed image 
+            # images_uw ==> original image
+            # images_us ==> transformed image 
             images_uw, images_us, _, idx_u, _, _ = next(unlabeled_iter)
             teacher_model.train()
 
@@ -474,18 +435,11 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
             save_image(images_uw[:25], os.path.join(args.save_path, 'mpl_input.png'), nrow=5, normalize=True)
 
         data_time.update(time.time() - end)
-
-        # images_l = images_l.to()  # args.device)
-        # images_uw = images_uw.to()  # args.device)
-        # images_us = images_us.to()  # args.device)
-        # targets = targets.to()  # args.device)
-        # teacher --> device0
-        # student --> device1
+      
         with amp.autocast(enabled=args.amp):
 
             # for teacher, concatenate labeled and unlabeled images 
             batch_size = images_l.shape[0]
-            # t_images = torch.cat((x_t, x_i, x_j))
 
             """teacher forward pass"""
             if args.dataset in ['multiscale', 'HRNet_multiscale']:
@@ -607,19 +561,14 @@ def train_loop(args, labeled_loader, unlabeled_loader, unlabeled_dataset, test_l
 
             # author's code formula
             # take difference between old and new loss values
-            dot_product = s_loss_l_new.item() - s_loss_l_old.item()
-            # print(f'dot_prod{dot_product}')
-            # moving_dot_product = moving_dot_product * 0.99 + dot_product * 0.01
-            # dot_product = dot_product - moving_dot_product
+            dot_product = s_loss_l_new.item() - s_loss_l_old.item()    
 
             # collect hard pseudo labels for unlabeled datset 
             _, hard_pseudo_label = torch.max(t_logits_us.detach(), dim=-1)
             # calculate meta-pseudo-label loss for teacher using product of student loss and unlabeled teacher loss 
             # only update teacher if student is learning significantly (reason for dot product of old-->new)
-            # t_loss_mpl = dot_product * F.cross_entropy(t_logits_us, hard_pseudo_label)
             t_loss_mpl = dot_product * criterion(t_logits_us, hard_pseudo_label)
-            # test
-            # t_loss_mpl = torch.tensor(0.).to(args.device)
+          
             # overall t_loss == loss formula for unsupervised data augmentation and meta-pseudo-label loss function 
             t_loss = t_loss_uda + t_loss_mpl
 
@@ -827,12 +776,6 @@ def finetune(args, finetune_dataset, test_loader, model, criterion, last_epoch=F
 
     model.drop = nn.Identity()
     labeled_loader = test_loader
-    # train_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
-    # labeled_loader = DataLoader(
-    #     finetune_dataset,
-    #     batch_size=args.finetune_batch_size,
-    #     num_workers=args.workers,
-    #     pin_memory=True)
 
     optimizer = optim.SGD(model.parameters(),
                           lr=args.finetune_lr,
@@ -860,8 +803,6 @@ def finetune(args, finetune_dataset, test_loader, model, criterion, last_epoch=F
             sys.stdout.write('\rFinetune Epoch: {}, Iter: {}/{}'. format(epoch+1, step+1, len(labeled_iter)))
             data_time.update(time.time() - end)
             batch_size = images.shape[0]
-            # images = images.cuda() # to(device1)
-            # targets = targets.cuda() # to(device1)
 
             with amp.autocast(enabled=args.amp):
 
@@ -1042,8 +983,8 @@ def main():
 
         make_example_images = False
         if make_example_images:
-            image_save_path = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/MPL_save/crop_samples'
-            data_path = '/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/HDNeuron/GAN_imgs'
+            image_save_path = ''
+            data_path = ''
             img_classes = ['Debris', 'Dense', 'Diff', 'Spread']
             for image_class in img_classes:
                 if args.dataset == 'custom':
