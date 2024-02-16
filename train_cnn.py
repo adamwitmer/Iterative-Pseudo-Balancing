@@ -55,8 +55,8 @@ from torchmetrics.classification import MulticlassAUROC
 parser = argparse.ArgumentParser()
 parser.add_argument('--d_in', type=int, default=674, help='length of texture feature vector used to train NN')
 parser.add_argument('--n_classes', type=int, default=4)
-parser.add_argument('--train_path', type=str, default='/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/dataset/SimCLR_datasets')  # /data1/adamw/HDNeuron')  # /GAN_imgs')
-parser.add_argument('--save_path', type=str, default='/media/adam/dc156fa0-1275-46c2-962c-bc8c9fcf1cb0/ucr_data/data1/contrastive_learning/MPL_save/HRNet')  # /data1/adamw/HDNeuron/GAN_imgs_four_classes_128/save/save')
+parser.add_argument('--train_path', type=str, default='')  
+parser.add_argument('--save_path', type=str, default='') 
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--crop_size', type=int, default=128)
 parser.add_argument('--n_epoch', type=int, default=200, help='number of epochs of training')
@@ -273,15 +273,12 @@ def normalize_img(img):
     return norm.round()
 
 
-data_folders = ['four_class']  
-
+data_folders = []
 n_folds = 5
-
-seeds = [1046, 6401, 51, 200589, 50098]  # 1046, 6401, 51]  #, ]  #
-
+seeds = []  # random seeds
 normalize = transforms.Normalize(mean=[0.485], std=[0.229])
 
-networks = ['HRNet']  #   'resnet18',  'vgg19']   # 'vgg13', 'vgg16', 'resnet50'
+networks = ['HRNet']  # 'resnet18',  'vgg19', 'vgg13', 'vgg16', 'resnet50'
 
 fold_tpr = []
 fold_tnr = []
@@ -377,16 +374,10 @@ for network in networks:
            
 
             """Load Model"""
-            
             print("Model Parameters Reset.")
-
-            """Load pretrained model"""
-            
             loss_func = torch.nn.CrossEntropyLoss() 
-          
             optim_func = torch.optim.SGD(CNN_model.parameters(), lr=opt.lr_sgd,
                                          momentum=opt.momentum_sgd, weight_decay=opt.wd_sgd)
-
             Tensor = torch.cuda.FloatTensor
             roc_auc = MulticlassAUROC(num_classes=opt.n_classes, average='none')
 
@@ -513,13 +504,6 @@ for network in networks:
         np.savetxt(os.path.join(opt.save_path, 'acc_fold.csv'), np.array([fold_acc.mean(0), fold_acc.std(0)]), fmt='%0.4f', delimiter=",")            
         np.savetxt(os.path.join(opt.save_path, 'roc_fold.csv'), np.array([fold_roc.mean(0), fold_roc.std(0)]), fmt='%0.4f', delimiter=",")            
 
-            #     if (epoch > 0 and epoch % opt.save_int == 0) or epoch == opt.n_epoch - 1:
-            #         torch.save(CNN_model, ('{}/trained_nn.pth'.format(save_folder)))
-
-            # pickle.dump(train_losses, open(os.path.join(save_folder, 'train_losses.p'), 'wb'))
-            # pickle.dump(train_acc, open(os.path.join(save_folder, 'train_acc.p'), 'wb'))
-
-        # pdb.set_trace()
 
 
 
