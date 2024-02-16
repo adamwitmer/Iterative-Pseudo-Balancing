@@ -1,12 +1,12 @@
 cff-version: 1.1.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: Witmer
+  - family-names: Witmer
   given-names: Adam
-orcid: https://orcid.org/0000-0003-1097-651X
--family-names: Bhanu
-given-names: Bir
-orchid: https://orcid.org/0000-0001-8971-6416
+  orcid: https://orcid.org/0000-0003-1097-651X
+  - family-names: Bhanu
+  given-names: Bir
+  orchid: https://orcid.org/0000-0001-8971-6416
 title: Iterative Pseudo Balancing
 version: v1.0.0
 doi: 10.5281/zenodo.10672230
